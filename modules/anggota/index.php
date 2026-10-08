@@ -20,29 +20,41 @@ $anggotaList = [];
 $totalRows   = 0;
 
 // Ambil daftar tipe keanggotaan untuk dropdown filter
-$stmtTipe = $pdo->query("SELECT * FROM tipe_keanggotaan ORDER BY nama_tipe ASC");
-$tipeList = $stmtTipe->fetchAll(PDO::FETCH_ASSOC);
+$resultTipe = $conn->query("SELECT * FROM tipe_keanggotaan ORDER BY nama_tipe ASC");
+$tipeList = $resultTipe->fetch_all(MYSQLI_ASSOC);
 
 // Bangun query dengan kondisi filter
 $conditions = ['1=1'];
 $params     = [];
+$types      = '';
 
 if ($search !== '') {
-    $conditions[] = '(a.nama LIKE :q OR a.nomor_kartu LIKE :q OR a.email LIKE :q)';
-    $params[':q'] = '%' . $search . '%';
+    $conditions[] = '(a.nama LIKE ? OR a.nomor_kartu LIKE ? OR a.email LIKE ?)';
+    $likeSearch = '%' . $search . '%';
+    $params[] = $likeSearch;
+    $params[] = $likeSearch;
+    $params[] = $likeSearch;
+    $types .= 'sss';
 }
 
 if ($filterTipe > 0) {
-    $conditions[] = 'a.tipe_id = :tipe';
-    $params[':tipe'] = $filterTipe;
+    $conditions[] = 'a.tipe_id = ?';
+    $params[] = $filterTipe;
+    $types .= 'i';
 }
 
 $where = implode(' AND ', $conditions);
 
 // Hitung total untuk paginasi
-$stmtCount = $pdo->prepare("SELECT COUNT(*) FROM anggota a WHERE $where");
-$stmtCount->execute($params);
-$totalRows = (int)$stmtCount->fetchColumn();
+$sqlCount = "SELECT COUNT(*) FROM anggota a WHERE $where";
+$stmtCount = $conn->prepare($sqlCount);
+if (!empty($params)) {
+    $stmtCount->bind_param($types, ...$params);
+}
+$stmtCount->execute();
+$stmtCount->bind_result($totalRows);
+$stmtCount->fetch();
+$stmtCount->close();
 
 // Ambil data sesuai halaman
 $sql = "SELECT a.*, t.nama_tipe, t.masa_berlaku_bulan 
@@ -50,15 +62,19 @@ $sql = "SELECT a.*, t.nama_tipe, t.masa_berlaku_bulan
         JOIN tipe_keanggotaan t ON a.tipe_id = t.id 
         WHERE $where 
         ORDER BY a.created_at DESC 
-        LIMIT :limit OFFSET :offset";
-$stmt = $pdo->prepare($sql);
-foreach ($params as $key => $val) {
-    $stmt->bindValue($key, $val);
+        LIMIT ? OFFSET ?";
+$stmt = $conn->prepare($sql);
+$stmtParams = $params;
+$stmtParams[] = $perPage;
+$stmtParams[] = $offset;
+$stmtTypes = $types . 'ii';
+if (!empty($stmtParams)) {
+    $stmt->bind_param($stmtTypes, ...$stmtParams);
 }
-$stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $stmt->execute();
-$anggotaList = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$result = $stmt->get_result();
+$anggotaList = $result->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
 
 $totalPages = $totalRows > 0 ? ceil($totalRows / $perPage) : 1;
 

@@ -12,10 +12,13 @@ if ($id <= 0) {
 $sql = "SELECT a.*, t.nama_tipe, t.masa_berlaku_bulan 
         FROM anggota a 
         JOIN tipe_keanggotaan t ON a.tipe_id = t.id 
-        WHERE a.id = :id";
-$stmt = $pdo->prepare($sql);
-$stmt->execute([':id' => $id]);
-$anggota = $stmt->fetch(PDO::FETCH_ASSOC);
+        WHERE a.id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $id);
+$stmt->execute();
+$result = $stmt->get_result();
+$anggota = $result->fetch_assoc();
+$stmt->close();
 
 if (!$anggota) {
     die('Data anggota tidak ditemukan.');
