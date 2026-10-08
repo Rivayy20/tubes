@@ -11,9 +11,12 @@ if ($id <= 0) {
 }
 
 // Ambil data anggota
-$stmt = $pdo->prepare("SELECT * FROM anggota WHERE id = :id");
-$stmt->execute([':id' => $id]);
-$anggota = $stmt->fetch(PDO::FETCH_ASSOC);
+$stmt = $conn->prepare("SELECT * FROM anggota WHERE id = ?");
+$stmt->bind_param("i", $id);
+$stmt->execute();
+$result = $stmt->get_result();
+$anggota = $result->fetch_assoc();
+$stmt->close();
 
 if (!$anggota) {
     $_SESSION['error_msg'] = 'Data anggota tidak ditemukan.';
@@ -22,8 +25,8 @@ if (!$anggota) {
 }
 
 // Ambil daftar tipe keanggotaan
-$stmtTipe = $pdo->query("SELECT * FROM tipe_keanggotaan ORDER BY nama_tipe ASC");
-$tipeList = $stmtTipe->fetchAll(PDO::FETCH_ASSOC);
+$resultTipe = $conn->query("SELECT * FROM tipe_keanggotaan ORDER BY nama_tipe ASC");
+$tipeList = $resultTipe->fetch_all(MYSQLI_ASSOC);
 
 $errors = $_SESSION['form_errors'] ?? [];
 $old    = $_SESSION['form_old'] ?? [];

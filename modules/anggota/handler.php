@@ -34,12 +34,15 @@ if ($action === 'create' || $action === 'update') {
 
     // Cek duplikasi nomor kartu
     if (empty($errors)) {
-        $sqlCek = "SELECT id FROM anggota WHERE nomor_kartu = :nomor_kartu AND id != :id";
-        $stmtCek = $pdo->prepare($sqlCek);
-        $stmtCek->execute([':nomor_kartu' => $data['nomor_kartu'], ':id' => $id]);
-        if ($stmtCek->fetch()) {
+        $sqlCek = "SELECT id FROM anggota WHERE nomor_kartu = ? AND id != ?";
+        $stmtCek = $conn->prepare($sqlCek);
+        $stmtCek->bind_param("si", $data['nomor_kartu'], $id);
+        $stmtCek->execute();
+        $resultCek = $stmtCek->get_result();
+        if ($resultCek->fetch_assoc()) {
             $errors[] = 'Nomor kartu sudah digunakan oleh anggota lain.';
         }
+        $stmtCek->close();
     }
 
     if (!empty($errors)) {
@@ -53,27 +56,36 @@ if ($action === 'create' || $action === 'update') {
     try {
         if ($action === 'create') {
             $sql = "INSERT INTO anggota (nomor_kartu, nama, email, no_hp, alamat, tipe_id, tanggal_daftar, status)
-                    VALUES (:nomor_kartu, :nama, :email, :no_hp, :alamat, :tipe_id, :tanggal_daftar, :status)";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute($data);
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("sssssiss", 
+                $data['nomor_kartu'], $data['nama'], $data['email'], $data['no_hp'], 
+                $data['alamat'], $data['tipe_id'], $data['tanggal_daftar'], $data['status']
+            );
+            $stmt->execute();
+            $stmt->close();
             $_SESSION['success_msg'] = 'Anggota baru berhasil ditambahkan.';
         } else {
-            $data['id'] = $id;
             $sql = "UPDATE anggota SET 
-                        nomor_kartu = :nomor_kartu,
-                        nama = :nama,
-                        email = :email,
-                        no_hp = :no_hp,
-                        alamat = :alamat,
-                        tipe_id = :tipe_id,
-                        tanggal_daftar = :tanggal_daftar,
-                        status = :status
-                    WHERE id = :id";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute($data);
+                        nomor_kartu = ?,
+                        nama = ?,
+                        email = ?,
+                        no_hp = ?,
+                        alamat = ?,
+                        tipe_id = ?,
+                        tanggal_daftar = ?,
+                        status = ?
+                    WHERE id = ?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("sssssissi", 
+                $data['nomor_kartu'], $data['nama'], $data['email'], $data['no_hp'], 
+                $data['alamat'], $data['tipe_id'], $data['tanggal_daftar'], $data['status'], $id
+            );
+            $stmt->execute();
+            $stmt->close();
             $_SESSION['success_msg'] = 'Data anggota berhasil diperbarui.';
         }
-    } catch (PDOException $e) {
+    } catch (mysqli_sql_exception $e) {
         $_SESSION['error_msg'] = 'Terjadi kesalahan sistem: ' . $e->getMessage();
     }
 
@@ -85,12 +97,14 @@ if ($action === 'delete') {
     $id = (int)($_POST['id'] ?? 0);
     if ($id > 0) {
         try {
-            $stmt = $pdo->prepare("DELETE FROM anggota WHERE id = :id");
-            $stmt->execute([':id' => $id]);
+            $stmt = $conn->prepare("DELETE FROM anggota WHERE id = ?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $stmt->close();
             $_SESSION['success_msg'] = 'Data anggota berhasil dihapus.';
-        } catch (PDOException $e) {
+        } catch (mysqli_sql_exception $e) {
             // Jika ada foreign key constraint
-            if ($e->getCode() == 23000) {
+            if ($e->getCode() == 1451) {
                 $_SESSION['error_msg'] = 'Gagal menghapus: Anggota ini memiliki riwayat peminjaman.';
             } else {
                 $_SESSION['error_msg'] = 'Terjadi kesalahan sistem: ' . $e->getMessage();

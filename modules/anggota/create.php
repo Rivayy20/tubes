@@ -8,21 +8,22 @@ require_once __DIR__ . '/../../config/db.php';
 $nomorSaran = 'LIB-' . date('Y') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
 
 try {
-    $stmt = $pdo->query("SELECT nomor_kartu FROM anggota ORDER BY id DESC LIMIT 1");
-    $last = $stmt->fetchColumn();
+    $result = $conn->query("SELECT nomor_kartu FROM anggota ORDER BY id DESC LIMIT 1");
+    $row = $result->fetch_assoc();
+    $last = $row ? $row['nomor_kartu'] : null;
     if ($last && preg_match('/(\d+)$/', $last, $m)) {
         $next = (int)$m[1] + 1;
         $nomorSaran = 'LIB-' . date('Y') . '-' . str_pad($next, 4, '0', STR_PAD_LEFT);
     } else {
         $nomorSaran = 'LIB-' . date('Y') . '-0001';
     }
-} catch (PDOException $e) {
+} catch (mysqli_sql_exception $e) {
     // Biarkan pakai nomor acak
 }
 
 // Ambil daftar tipe keanggotaan
-$stmtTipe = $pdo->query("SELECT * FROM tipe_keanggotaan ORDER BY nama_tipe ASC");
-$tipeList = $stmtTipe->fetchAll(PDO::FETCH_ASSOC);
+$resultTipe = $conn->query("SELECT * FROM tipe_keanggotaan ORDER BY nama_tipe ASC");
+$tipeList = $resultTipe->fetch_all(MYSQLI_ASSOC);
 
 $errors = $_SESSION['form_errors'] ?? [];
 $old    = $_SESSION['form_old'] ?? [];
